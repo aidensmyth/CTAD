@@ -6,5 +6,4 @@ Work in progress, busy with grad school
   - BU track analysis
   - Athlete comparison
   - Conference rankings by event depth
-
-![ctad](https://user-images.githubusercontent.com/57106231/227985989-fe29075a-31be-4ee0-9c72-763e2540ba0d.JPG)
+![ctad](https://user-images.githubusercontent.com/57106231/227987288-0bc43b73-9cef-42d7-b847-d06e90d2b508.JPG)
