@@ -1,0 +1,216 @@
+
+
+```{r}
+# BU Analysis
+library("Rcrawler")
+library("rvest")
+library('tidyr')
+library("lubridate")
+library("stringi")
+library("ggplot2")
+
+```
+
+```{r}
+url = "https://tfrrs.org/results/76446/4670759/2023_Boston_University_David_Hemery_Valentine_Invite_/Mens-Mile"
+webpage <- read_html(url)
+mile_val <- html_nodes(webpage,"body > div.page.container > div > div > div.panel-body > div:nth-child(1)")
+tbl <- html_table(html_nodes(mile_val,"table"), fill = TRUE)
+mile_val <- data.frame(tbl)
+```
+
+```{r}
+mile_val <- mile_val[mile_val$YEAR == "FR-1" | mile_val$YEAR == "SO-2"
+                     | mile_val$YEAR == "JR-3" | mile_val$YEAR == "SR-4",]
+
+mile_val <- mile_val[mile_val$TIME != "DNF",]
+```
+
+```{r}
+mile_val
+```
+```{r}
+get_first_google_link <- function(name, root = TRUE) {
+  url = URLencode(paste0("https://www.google.com/search?q=",name))
+  page <- xml2::read_html(url)
+  # extract all links
+  nodes <- rvest::html_nodes(page, "a")
+  links <- rvest::html_attr(nodes,"href")
+  # extract first link of the search results
+  link <- links[startsWith(links, "/url?q=")][1]
+  # clean it
+  link <- sub("^/url\\?q\\=(.*?)\\&sa.*$","\\1", link)
+}
+
+initialize_tffrs <- function(webpage){
+  event_history <- html_nodes(webpage,"#event-history")
+  tbl <- html_table(html_nodes(event_history,"table"), fill = TRUE)
+  event_names <- c("60 Meters","60 Hurdles","100 Meters","110 Hurdles", "200 Meters", "400 Meters", "500 Meters", "600 Meters",
+                   "800 Meters", "1000 Meters","1500 Meters", "Mile", "3000 Meters", "3000 Steeplechase", "5000 Meters", "10,000 Meters")
+  
+  tffrs_df <- setNames(data.frame(matrix(ncol = 5, nrow = 0)), c("Event","Season", "Time", "Meet","Date"))
+  tffrs_df_new <- setNames(data.frame(matrix(ncol = 5, nrow = 0)), c("Event","Season", "Time", "Meet","Date"))
+  
+  for (i in 1:length(tbl)){
+    temp = data.table::rbindlist(tbl[i])
+    df<- as.data.frame(temp)
+    df_name <- names(df[1])
+    
+    if (grepl("Relay",df_name,fixed=TRUE)) {
+      break
+    } else if (grepl("k",df_name,fixed=TRUE)) {
+      break
+    }
+    tffrs_df
+    tffrs_df = generate_tffrs_df(df,df_name,event_names,tffrs_df)
+  }
+  return(tffrs_df)  
+}
+
+generate_tffrs_df <- function(df,df_name,event_names,tffrs_df) {
+  for (track_events in event_names) {
+  if (grepl(track_events,df_name,fixed=TRUE) == TRUE) { 
+    if (grepl("Indoor",df_name,fixed=TRUE) == TRUE) {
+      Time <- as.list(as.data.frame(t(df[1])))
+      Meet <- as.list(as.data.frame(t(df[2])))
+      Date <- as.list(as.data.frame(t(df[3])))
+      Event <- rep(track_events,length(Time))
+      Season <- rep("Indoor",length(Time))
+    }
+    else { 
+      Time <- as.list(as.data.frame(t(df[1])))
+      Meet <- as.list(as.data.frame(t(df[2])))
+      Date <- as.list(as.data.frame(t(df[3])))
+      Event <- rep(track_events,length(Time))
+      Season <- rep("Outdoor",length(Time))
+    }
+  }
+  else { 
+  next
+  }
+  }
+  for (i in 1:length(Time)) {
+  tffrs_df[nrow(tffrs_df) + 1,] <- list(Event[i], Season[i], paste(Time[i]), paste(Meet[i]), paste(Date[i]))
+  }
+  return(tffrs_df)
+}
+
+sec_to_min <- function(sec) {
+  mins = sec%/%60
+  remainder = sec%%60
+  print(round(remainder))
+  if (stri_length(floor(remainder))==1) {
+     time_ms = paste(toString(mins),":0",toString(round(remainder,2)),sep="")
+     return(time_ms)
+  } else {
+  time_ms = paste(toString(mins),":",toString(round(remainder,2)),sep="")
+  return(time_ms)
+  }
+}
+
+
+raw_mile_pb = list()
+str_mile_pb = list()
+j = 1
+```
+
+```{r}
+for (i in mile_val$NAME) {
+  url = get_first_google_link(toString(c(i," TFFRS")))
+  webpage <- read_html(url)
+  tffrs_df = try(initialize_tffrs(webpage))
+  if("try-error" %in% class(tffrs_df)) {
+    raw_mile_pb[j] = NA
+    str_mile_pb[j] = NA
+    j = j+1
+  } else {
+    tffrs_df$Date<-mdy(tffrs_df$Date)
+    tffrs_df$Time = stri_extract(tffrs_df$Time, regex = ".*")
+    tffrs_df_mile = tffrs_df[tffrs_df$Event == "Mile" & tffrs_df$Season == "Indoor" & 
+                               tffrs_df$Meet != "2023 Boston University David Hemery Valentine Invite"
+                             & tffrs_df$Time != "DNF" & tffrs_df$Time != "DNS" & tffrs_df$Time != "DQ"
+                             & tffrs_df$Time != "NT",] 
+    if (length(tffrs_df_mile) == 0) {
+      raw_mile_pb[j] = NA
+      str_mile_pb[j] = NA
+      j = j+1
+    } else {
+      tffrs_df_mile$Time = stri_extract(tffrs_df_mile$Time, regex = ".*")
+      tffrs_df_mile$Time<-ms(tffrs_df_mile$Time)
+      tffrs_df_mile$Time<-as.numeric(tffrs_df_mile$Time)
+      mile_pb = min(tffrs_df_mile$Time)
+      raw_mile_pb[j]= mile_pb
+      str_mile_pb[j] = sec_to_min(mile_pb)
+      j = j+1
+    }
+  }
+  print(j)
+}
+```
+
+
+```{r}
+#raw_mile_pb = list()
+#str_mile_pb = list()
+
+#url = get_first_google_link(toString(c(mile_val$NAME[32]," TFFRS")))
+#webpage <- read_html(url)
+#tffrs_df = try(initialize_tffrs(webpage))
+#tffrs_df
+#tffrs_df$Time = stri_extract(tffrs_df$Time, regex = ".*")
+#if("try-error" %in% class(tffrs_df)) {
+ # raw_mile_pb[1] = NA
+  #str_mile_pb[1] = NA
+  #print(1)
+#} else {
+ # tffrs_df
+  #tffrs_df_mile = tffrs_df[tffrs_df$Event == "Mile" & tffrs_df$Season == "Indoor" & 
+   #                          tffrs_df$Meet != "2023 Boston University David Hemery Valentine Invite"
+    #                       & tffrs_df$Time != "DNF" & tffrs_df$Time != "DNS" & tffrs_df$Time != "DQ",] 
+  #tffrs_df_mile
+  #if (length(tffrs_df_mile) == 0) {
+   # raw_mile_pb[1] = NA
+    #str_mile_pb[1] = NA
+#  }
+ # temp = tffrs_df_mile
+  #tffrs_df_mile$Time<-ms(tffrs_df_mile$Time)
+  #tffrs_df_mile$Time<-as.numeric(tffrs_df_mile$Time)
+  #mile_pb = min(tffrs_df_mile$Time)
+  #raw_mile_pb[1]= mile_pb
+  #str_mile_pb[1] = sec_to_min(mile_pb)
+  #print("works")
+#}
+```
+
+```{r}
+mile_val$MILE_PB <- paste(str_mile_pb)
+mile_val$RAW_MILE_PB <- paste(raw_mile_pb)
+```
+
+```{r}
+mile_val
+```
+
+```{r}
+mile_val <- mile_val[mile_val$RAW_MILE_PB != "Inf" & mile_val$RAW_MILE_PB != "NA",]
+mile_val$TIME_RAW <- as.numeric(ms(mile_val$TIME))
+mile_val
+```
+```{r}
+mile_val$PB = ifelse(mile_val$TIME_RAW < mile_val$RAW_MILE_PB, 1,
+                      ifelse(mile_val$TIME_RAW < mile_val$RAW_MILE_PB, 0,0))
+mile_val
+library(dplyr)
+
+mile_val %>% 
+  count(PB)
+
+sec_to_min(mean(mile_val$TIME_RAW))
+sec_to_min(sd(mile_val$TIME_RAW))
+```
+```{r}
+date = 	"Feb 10-11, 2023"
+tffrs_df$Date<-mdy(tffrs_df$Date)
+tffrs_df
+```
+

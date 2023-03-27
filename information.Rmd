@@ -1,0 +1,14 @@
+---
+title: "Information"
+author: "Aiden Smyth"
+date: "2023-02-15"
+output: html_document
+---
+
+## Info
+
+Project was developed by Aiden Smyth, a first-year Biomedical Informatics MS 
+student at Stony Brook University. I currently run for the XC and TF team at
+Stony Brook. My main research on campus is involved in applying AI to pathology
+through Digital Pathology.
+

@@ -1,0 +1,80 @@
+---
+title: "BU Track Analysis"
+author: "Aiden Smyth"
+date: "2023-02-15"
+output: html_document
+---
+
+## Boston University (BU) Indoor Track: The Why and How
+This analysis seeks to provide some analysis behind why the track at BU is fast,
+as well as compare it to other facilities across the country (Armory, UW Dempsey).
+
+Introduction
+
+Methodology
+
+Results
+
+Discussion:
+
+Is BU faster for male runners vs female runners?
+-Biomechanical reasoning
+-Other track comaprison
+-Open ended to debate, p-value
+- Is BU fair for NCAA qualifying
+- Do people still run as fast outside of BU's track
+- Are people so obsessed with running fast indoors, do more people peak too early?
+
+Reasoning for fast times at BU?
+
+There are various theories and rationale behind the fast times at BU. Some having
+more credence than others. The conclusion below is a mix of my own conjecture,
+biomechanical evidence, and statistics.
+
+1. BU sets up meets and fast races really well
+
+Obviously this is an opinion, but it can certainly be said for good reason. BU knows
+how to set up a fast meet. The allure of racing at BU inherently attracts plenty
+of non-local talent. Furthermore, the average local college team in Boston has at the minimum 
+a few solid athletes. This is impressive considering the other track facilities within 
+the local vicinity (Harvard, Reggie Lewis, NB TRACK). 
+
+BU tends to have pacers in multiple heats besides the fastest one as well. This
+ensures that guys that missed out on the fast heats may not have to take it out 
+themselves. This also isn't just limited to a single distance event like the 
+mile. All events from 800m and up will likely have a pacer for a large portion of
+the race.
+
+2. Bank Angle and Engineering Principles combined with spikes?
+
+As for the super spike argument, I won't go into detail over this. Spike technology 
+has certainly seen major developments in the past few years. At most in the mile,
+the spikes likely improves times by a few seconds.
+
+BU's bank angle is the highest in the NCAA and likely the world* for an indoor
+track. In fact, the bank angle exceeds the NCAA limit (reference). I assume
+BU's track was grandfathered in allowing for this breach. (umich study)
+
+
+3. Mentality and Environment
+
+The whole argument of the atmosphere being a major reason seems like a stretch to
+me. You can replicate the same at other facilities, especially at conference meets.
+For example, I was racing down in Virginia Beach for the CAA indoor conference meet. 
+Even though the facility was no where near full capacity, the atmosphere was lively 
+and loud. Overall, the atmosphere of a facility can certainly be replicated elsewhere.
+
+However, the mentality of individual athlete can lead to better performances. The
+small sample size of people I have spoken to have said in general that BU is their favorite track.
+
+Concluding Remarks
+
+Any questions/comments/suggestions?
+Email aiden.smyth@stonybrook.edu
+
+References
+
+
+
+
+

@@ -1,0 +1,373 @@
+```{r}
+install.packages("stringi")
+```
+
+
+```{r}
+install.packages("rlang")
+install.packages("Rcrawler")
+install.packages("tidyverse")
+install.packages("urltools")
+install.packages("RCurl")
+install.packages("httr")
+```
+
+```{r}
+library("Rcrawler")
+library("rvest")
+library('tidyr')
+```
+
+```{r}
+get_first_google_link <- function(name, root = TRUE) {
+  url = URLencode(paste0("https://www.google.com/search?q=",name))
+  page <- xml2::read_html(url)
+  # extract all links
+  nodes <- rvest::html_nodes(page, "a")
+  links <- rvest::html_attr(nodes,"href")
+  # extract first link of the search results
+  link <- links[startsWith(links, "/url?q=")][1]
+  # clean it
+  link <- sub("^/url\\?q\\=(.*?)\\&sa.*$","\\1", link)
+}
+#url <- get_first_google_link(readline(prompt = "enter name, school, end with tffrs:"))
+```
+
+```{r}
+#webpage <- read_html(url)
+#print(webpage)
+```
+```{r}
+generate_tffrs_df <- function(df,df_name,event_names,tffrs_df) {
+  for (track_events in event_names) {
+  if (grepl(track_events,df_name,fixed=TRUE) == TRUE) { 
+    if (grepl("Indoor",df_name,fixed=TRUE) == TRUE) {
+      Time <- as.list(as.data.frame(t(df[1])))
+      Meet <- as.list(as.data.frame(t(df[2])))
+      Date <- as.list(as.data.frame(t(df[3])))
+      Event <- rep(track_events,length(Time))
+      Season <- rep("Indoor",length(Time))
+    }
+    else { 
+      Time <- as.list(as.data.frame(t(df[1])))
+      Meet <- as.list(as.data.frame(t(df[2])))
+      Date <- as.list(as.data.frame(t(df[3])))
+      Event <- rep(track_events,length(Time))
+      Season <- rep("Outdoor",length(Time))
+    }
+  }
+  else { 
+  next
+  }
+  }
+  for (i in 1:length(Time)) {
+  tffrs_df[nrow(tffrs_df) + 1,] <- list(Event[i], Season[i], paste(Time[i]), paste(Meet[i]), paste(Date[i]))
+  }
+  return(tffrs_df)
+}
+```
+
+```{r}
+initialize_tffrs <- function(webpage){
+  event_history <- html_nodes(webpage,"#event-history")
+  tbl <- html_table(html_nodes(event_history,"table"), fill = TRUE)
+  event_names <- c("60 Meters","60 Hurdles","100 Meters","110 Hurdles", "200 Meters", "400 Meters", "500 Meters",
+                   "800 Meters", "1000 Meters","1500 Meters", "Mile", "3000 Meters", "3000 Steeplechase", "5000 Meters", "10,000 Meters")
+  
+  tffrs_df <- setNames(data.frame(matrix(ncol = 5, nrow = 0)), c("Event","Season", "Time", "Meet","Date"))
+  tffrs_df_new <- setNames(data.frame(matrix(ncol = 5, nrow = 0)), c("Event","Season", "Time", "Meet","Date"))
+  
+  for (i in 1:length(tbl)){
+    temp = data.table::rbindlist(tbl[i])
+    df<- as.data.frame(temp)
+    df_name <- names(df[1])
+    
+    if (grepl("Relay",df_name,fixed=TRUE)) {
+      break
+    } else if (grepl("k",df_name,fixed=TRUE)) {
+      break
+    }
+    
+    tffrs_df = generate_tffrs_df(df,df_name,event_names,tffrs_df)
+  }
+  return(tffrs_df)  
+}
+
+#tffrs_df = initialize_tffrs(webpage)
+```
+
+```{r}
+#library("lubridate")
+#library("stringi")
+
+clean_up_df <-  function(tffrs_df){
+
+  tffrs_df[tffrs_df$Time != "DNF", ]  
+  tffrs_df[tffrs_df$Time != "DNS", ]  
+  
+  tffrs_df$Time<-ms(tffrs_df$Time)
+  tffrs_df$Time<-as.numeric(tffrs_df$Time)
+  
+  months = list()
+  days = list()
+  years = list()
+  
+  for (i in 1:length(tffrs_df$Date)) {
+    days = paste(append(days,stri_extract(tffrs_df$Date[[i]], regex = "\\d+")))
+    years = paste(append(years,stri_extract(tffrs_df$Date[[i]], regex = "\\d{4}")))
+    months = paste(append(months,stri_extract(tffrs_df$Date[[i]], regex = "\\w*")))
+  }
+  
+  tffrs_df$Day <- days
+  tffrs_df$Month <- months
+  tffrs_df$Year <- years
+  
+  return(tffrs_df)
+}
+
+split_tffrs<-function(tffrs_df){
+    dfs<- split(tffrs_df,tffrs_df$Event)
+    return(dfs)
+}
+```
+
+```{r}
+months = list()
+days = list()
+years = list()
+
+for (i in 1:length(tffrs_df$Date)) {
+  days = paste(append(days,stri_extract(tffrs_df$Date[[i]], regex = "\\d+")))
+  years = paste(append(years,stri_extract(tffrs_df$Date[[i]], regex = "\\d{4}")))
+  months = paste(append(months,stri_extract(tffrs_df$Date[[i]], regex = "\\w*")))
+}
+
+tffrs_df$Day <- days
+tffrs_df$Month <- months
+tffrs_df$Year <- years
+tffrs_df
+```
+
+```{r}
+#mile_dist_df = subset(tffrs_df, Event == '1500 Meters' | Event == "Mile")
+#mid_dist_df = subset(tffrs_df, Event == '800 Meters' | Event == "1000 Meters")
+#three_dist_df = subset(tffrs_df, Event == '3000 Meters' | Event == "3000 Steeplechase")
+#five_dist_df = subset(tffrs_df, Event == '5000 Meters')
+#ten_dist_df = subset(tffrs_df, Event == "10000 Meters" )
+dfs<- split(tffrs_df,tffrs_df$Event)
+dfs[[1]]
+
+```
+
+
+```{r}
+#library(ggplot2)
+make_boxplots <- function(dfs) {
+  my_boxplots = list()
+  
+  for (i in 1:length(dfs)){
+    my_boxplots[[i]] <- ggplot(dfs[[i]], aes(x=Year, y=Time)) + 
+      geom_boxplot() +
+      ggtitle(paste(dfs[[i]]$Event))
+  }
+  return(my_boxplots)
+} 
+
+make_violinplots <- function(dfs) {
+  my_violinplots = list()
+  
+  for (i in 1:length(dfs)){
+    my_violinplots[[i]]<- ggplot(dfs[[i]], aes(x=Year, y=Time)) + 
+      geom_violin() +
+      geom_boxplot(width=0.1)+
+      ggtitle(paste(dfs[[i]]$Event))
+  }
+  return(my_violinplots)
+}
+
+```
+
+
+```{r}
+# Functions
+get_first_google_link <- function(name, root = TRUE) {
+  url = URLencode(paste0("https://www.google.com/search?q=",name))
+  page <- xml2::read_html(url)
+  # extract all links
+  nodes <- rvest::html_nodes(page, "a")
+  links <- rvest::html_attr(nodes,"href")
+  # extract first link of the search results
+  link <- links[startsWith(links, "/url?q=")][1]
+  # clean it
+  link <- sub("^/url\\?q\\=(.*?)\\&sa.*$","\\1", link)
+}
+
+generate_tffrs_df <- function(df,df_name,event_names,tffrs_df) {
+  for (track_events in event_names) {
+  if (grepl(track_events,df_name,fixed=TRUE) == TRUE) { 
+    if (grepl("Indoor",df_name,fixed=TRUE) == TRUE) {
+      Time <- as.list(as.data.frame(t(df[1])))
+      Meet <- as.list(as.data.frame(t(df[2])))
+      Date <- as.list(as.data.frame(t(df[3])))
+      Event <- rep(track_events,length(Time))
+      Season <- rep("Indoor",length(Time))
+    }
+    else { 
+      Time <- as.list(as.data.frame(t(df[1])))
+      Meet <- as.list(as.data.frame(t(df[2])))
+      Date <- as.list(as.data.frame(t(df[3])))
+      Event <- rep(track_events,length(Time))
+      Season <- rep("Outdoor",length(Time))
+    }
+  }
+  else { 
+  next
+  }
+  }
+  for (i in 1:length(Time)) {
+  tffrs_df[nrow(tffrs_df) + 1,] <- list(Event[i], Season[i], paste(Time[i]), paste(Meet[i]), paste(Date[i]))
+  }
+  return(tffrs_df)
+}
+
+initialize_tffrs <- function(webpage){
+  event_history <- html_nodes(webpage,"#event-history")
+  tbl <- html_table(html_nodes(event_history,"table"), fill = TRUE)
+  event_names <- c("60 Meters","60 Hurdles","100 Meters","110 Hurdles", "200 Meters", "400 Meters", "500 Meters",
+                   "800 Meters", "1000 Meters","1500 Meters", "Mile", "3000 Meters", "3000 Steeplechase", "5000 Meters", "10,000 Meters")
+  
+  tffrs_df <- setNames(data.frame(matrix(ncol = 5, nrow = 0)), c("Event","Season", "Time", "Meet","Date"))
+  tffrs_df_new <- setNames(data.frame(matrix(ncol = 5, nrow = 0)), c("Event","Season", "Time", "Meet","Date"))
+  
+  for (i in 1:length(tbl)){
+    temp = data.table::rbindlist(tbl[i])
+    df<- as.data.frame(temp)
+    df_name <- names(df[1])
+    
+    if (grepl("Relay",df_name,fixed=TRUE)) {
+      break
+    } else if (grepl("k",df_name,fixed=TRUE)) {
+      break
+    }
+    
+    tffrs_df = generate_tffrs_df(df,df_name,event_names,tffrs_df)
+  }
+  return(tffrs_df)  
+}
+
+clean_up_df <-  function(tffrs_df){
+
+  tffrs_df[tffrs_df$Time != "DNF", ]  
+  tffrs_df[tffrs_df$Time != "DNS", ]  
+  
+  tffrs_df$Time<-ms(tffrs_df$Time)
+  tffrs_df$Time<-as.numeric(tffrs_df$Time)
+  
+  months = list()
+  days = list()
+  years = list()
+  
+  for (i in 1:length(tffrs_df$Date)) {
+    days = paste(append(days,stri_extract(tffrs_df$Date[[i]], regex = "\\d+")))
+    years = paste(append(years,stri_extract(tffrs_df$Date[[i]], regex = "\\d{4}")))
+    months = paste(append(months,stri_extract(tffrs_df$Date[[i]], regex = "\\w*")))
+  }
+  
+  tffrs_df$Day <- days
+  tffrs_df$Month <- months
+  tffrs_df$Year <- years
+  
+  return(tffrs_df)
+}
+
+split_tffrs<-function(tffrs_df){
+    dfs<- split(tffrs_df,tffrs_df$Event)
+    return(dfs)
+}
+
+make_boxplots <- function(dfs) {
+  my_boxplots = list()
+  
+  for (i in 1:length(dfs)){
+    my_boxplots[[i]] <- ggplot(dfs[[i]], aes(x=Year, y=Time)) + 
+      geom_boxplot() +
+      ggtitle(paste(dfs[[i]]$Event))
+  }
+  return(my_boxplots)
+} 
+
+make_violinplots <- function(dfs) {
+  my_violinplots = list()
+  
+  for (i in 1:length(dfs)){
+    my_violinplots[[i]]<- ggplot(dfs[[i]], aes(x=Year, y=Time)) + 
+      geom_violin() +
+      geom_boxplot(width=0.1)+
+      ggtitle(paste(dfs[[i]]$Event))
+  }
+  return(my_violinplots)
+}
+
+
+```
+
+```{r}
+library("Rcrawler")
+library("rvest")
+library('tidyr')
+library("lubridate")
+library("stringi")
+library("ggplot2")
+url <- get_first_google_link(readline(prompt = "enter name, school, end with tffrs:"))
+webpage <- read_html(url)
+tffrs_df <- initialize_tffrs(webpage)
+tffrs_df <- clean_up_df(tffrs_df)
+dfs <- split_tffrs(tffrs_df)
+my_boxplots <- make_boxplots(dfs)
+my_violinplots <-make_violinplots(dfs)
+
+```
+```{r}
+library("dplyr")
+
+sec_to_min <- function(sec) {
+  mins = sec%/%60
+  remainder = sec%%60
+  print(round(remainder))
+  if (stri_length(floor(remainder))==1) {
+     time_ms = paste(toString(mins),":0",toString(round(remainder,2)),sep="")
+     return(time_ms)
+  } else {
+  time_ms = paste(toString(mins),":",toString(round(remainder,2)),sep="")
+  return(time_ms)
+  }
+}
+
+aggregate_table <- function(df) {
+  mean_df = aggregate(Time~Year + Month,data=df,mean)
+  std_df = aggregate(Time~Year + Month,data=df,sd)
+
+  stats_df <- mean_df %>% 
+          rename("Mean" = "Time")
+
+  stats_df$Mean <-paste(lapply(stats_df$Mean,sec_to_min))
+  stats_df$sd_seconds<-std_df$Time
+ 
+   return(stats_df)
+  
+}
+
+stats_df <- aggregate_table(dfs[[2]])
+stats_df
+#sec_to_min(min(dfs[[2]]$Time))
+#sec_to_min((dfs[[2]]$Time))
+
+
+#my_boxplots
+#my_violin
+events = unique(tffrs_df$Event)
+
+```
+
+
+
